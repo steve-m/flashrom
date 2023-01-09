@@ -179,6 +179,9 @@ DEPENDS_ON_LINUX_I2C := \
 	CONFIG_REALTEK_MST_I2C_SPI \
 	CONFIG_MEDIATEK_I2C_SPI \
 
+DEPENDS_ON_LIBGPIOD := \
+	CONFIG_LINUX_GPIOD \
+
 ifeq ($(CONFIG_ENABLE_LIBUSB1_PROGRAMMERS), no)
 $(call disable_all,$(DEPENDS_ON_LIBUSB1))
 endif
@@ -233,6 +236,10 @@ CONFIG_LIBPCI_VERSION      := $(call dependency_version, libpci)
 CONFIG_LIBPCI_CFLAGS       := $(call dependency_cflags, libpci)
 CONFIG_LIBPCI_LDFLAGS      := $(call dependency_ldflags, libpci)
 
+CONFIG_LIBGPIOD_VERSION      := $(call dependency_version, libgpiod)
+CONFIG_LIBGPIOD_CFLAGS       := $(call dependency_cflags, libgpiod)
+CONFIG_LIBGPIOD_LDFLAGS      := $(call dependency_ldflags, libgpiod)
+
 # Determine the destination OS, architecture and endian
 # IMPORTANT: The following lines must be placed before TARGET_OS, ARCH or ENDIAN
 # is ever used (of course), but should come after any lines setting CC because
@@ -247,6 +254,7 @@ HAS_LIB_NI845X      := no
 HAS_LIBJAYLINK      := $(call find_dependency, libjaylink)
 HAS_LIBUSB1         := $(call find_dependency, libusb-1.0)
 HAS_LIBPCI          := $(call find_dependency, libpci)
+HAS_LIBGPIOD        := $(call find_dependency, libgpiod)
 
 HAS_PCI_OLD_GET_DEV := $(call c_compile_test, Makefile.d/pci_old_get_dev_test.c, $(CONFIG_LIBPCI_CFLAGS))
 HAS_FT232H          := $(call c_compile_test, Makefile.d/ft232h_test.c, $(CONFIG_LIBFTDI1_CFLAGS))
@@ -348,6 +356,10 @@ endif
 
 ifeq ($(HAS_LIBUSB1), no)
 $(call mark_unsupported,$(DEPENDS_ON_LIBUSB1))
+endif
+
+ifeq ($(HAS_LIBGPIOD), no)
+$(call mark_unsupported,$(DEPENDS_ON_LIBGPIOD))
 endif
 
 ifeq ($(HAS_SERIAL), no)
@@ -506,9 +518,10 @@ CONFIG_DEVELOPERBOX_SPI ?= yes
 # Always enable Marvell SATA controllers for now.
 CONFIG_SATAMV ?= yes
 
-# Enable Linux spidev and MTD interfaces by default. We disable them on non-Linux targets.
+# Enable Linux spidev, MTD and gpiod interfaces by default. We disable them on non-Linux targets.
 CONFIG_LINUX_MTD ?= yes
 CONFIG_LINUX_SPI ?= yes
+CONFIG_LINUX_GPIOD ?= yes
 
 # Always enable ITE IT8212F PATA controllers for now.
 CONFIG_IT8212 ?= yes
@@ -757,6 +770,11 @@ FEATURE_FLAGS += -D'CONFIG_LINUX_SPI=1'
 PROGRAMMER_OBJS += linux_spi.o
 endif
 
+ifeq ($(CONFIG_LINUX_GPIOD), yes)
+FEATURE_FLAGS += -D'CONFIG_LINUX_GPIOD=1'
+PROGRAMMER_OBJS += linux_gpiod.o
+endif
+
 ifeq ($(CONFIG_MSTARDDC_SPI), yes)
 FEATURE_FLAGS += -D'CONFIG_MSTARDDC_SPI=1'
 PROGRAMMER_OBJS += mstarddc_spi.o
@@ -865,6 +883,12 @@ FEATURE_FLAGS += -D'HAVE_FT232H=1'
 endif
 endif
 
+USE_LIBGPIOD := $(if $(call filter_deps,$(DEPENDS_ON_LIBGPIOD)),yes,no)
+ifeq ($(USE_LIBGPIOD), yes)
+override CFLAGS  += $(CONFIG_LIBGPIOD_CFLAGS)
+override LDFLAGS += $(CONFIG_LIBGPIOD_LDFLAGS)
+endif
+
 USE_LIB_NI845X := $(if $(call filter_deps,$(DEPENDS_ON_LIB_NI845X)),yes,no)
 ifeq ($(USE_LIB_NI845X), yes)
 override CFLAGS += $(CONFIG_LIB_NI845X_CFLAGS)
@@ -942,6 +966,11 @@ config:
 		echo "  Checking for \"TYPE_232H\" in \"enum ftdi_chip_type\": $(HAS_FT232H)"; \
 		echo "  CFLAGS: $(CONFIG_LIBFTDI1_CFLAGS)";	\
 		echo "  LDFLAGS: $(CONFIG_LIBFTDI1_LDFLAGS)";	\
+	fi
+	@echo Dependency libgpiod found: $(HAS_LIBGPIOD) $(CONFIG_LIBGPIOD_VERSION)
+	@if [ $(HAS_LIBGPIOD) = yes ]; then			\
+		echo "  CFLAGS: $(CONFIG_LIBGPIOD_CFLAGS)";	\
+		echo "  LDFLAGS: $(CONFIG_LIBGPIOD_LDFLAGS)";	\
 	fi
 	@echo "Checking for header \"mtd/mtd-user.h\": $(HAS_LINUX_MTD)"
 	@echo "Checking for header \"linux/spi/spidev.h\": $(HAS_LINUX_SPI)"

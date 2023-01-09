@@ -124,6 +124,10 @@ const struct programmer_entry *const programmer_table[] = {
     &programmer_linux_spi,
 #endif
 
+#if CONFIG_LINUX_GPIOD == 1
+    &programmer_linux_gpiod,
+#endif
+
 #if CONFIG_PARADE_LSPCON == 1
     &programmer_parade_lspcon,
 #endif
